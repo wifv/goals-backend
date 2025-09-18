@@ -1,4 +1,3 @@
-// server.js
 import express from "express";
 import cors from "cors";
 import fs from "fs";
@@ -30,10 +29,12 @@ app.post("/addGoal", (req, res) => {
   const newGoal = {
     id: Date.now(),
     goal,
-    subGoals: Array.isArray(subGoals) ? subGoals.map(sg => ({
-      id: Date.now() + Math.floor(Math.random() * 1000), // unique ID
-      goal: sg
-    })) : []
+    subGoals: Array.isArray(subGoals)
+      ? subGoals.map((sg) => ({
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          goal: sg,
+        }))
+      : [],
   };
 
   goals.push(newGoal);
@@ -42,9 +43,43 @@ app.post("/addGoal", (req, res) => {
   res.status(201).json({ message: "Goal added", goal: newGoal });
 });
 
+// ✅ POST: Add a subGoal to an existing goal
+app.post("/addSubGoal/:goalId", (req, res) => {
+  const { goalId } = req.params;
+  const { goal } = req.body;
+
+  if (!goal) return res.status(400).json({ error: "SubGoal text is required" });
+
+  let goals = readGoals();
+  const parent = goals.find((g) => g.id === parseInt(goalId));
+  if (!parent) return res.status(404).json({ error: "Parent goal not found" });
+
+  const newSubGoal = {
+    id: Date.now(),
+    goal,
+  };
+
+  parent.subGoals.push(newSubGoal);
+  writeGoals(goals);
+
+  res.status(201).json({ message: "SubGoal added", subGoal: newSubGoal, parentGoal: parent });
+});
+
 // GET: Get all goals (with subGoals)
 app.get("/getGoals", (req, res) => {
   res.json(readGoals());
+});
+
+// ✅ GET: Get a single goal by ID
+app.get("/getGoal/:id", (req, res) => {
+  const { id } = req.params;
+
+  const goals = readGoals();
+  const goal = goals.find((g) => g.id === parseInt(id));
+
+  if (!goal) return res.status(404).json({ error: "Goal not found" });
+
+  res.json(goal);
 });
 
 // PUT: Change a main goal text
@@ -68,10 +103,10 @@ app.put("/changeSubGoal/:goalId/:subGoalId", (req, res) => {
   const { goal } = req.body;
 
   let goals = readGoals();
-  const parent = goals.find(g => g.id === parseInt(goalId));
+  const parent = goals.find((g) => g.id === parseInt(goalId));
   if (!parent) return res.status(404).json({ error: "Parent goal not found" });
 
-  const subIndex = parent.subGoals.findIndex(sg => sg.id === parseInt(subGoalId));
+  const subIndex = parent.subGoals.findIndex((sg) => sg.id === parseInt(subGoalId));
   if (subIndex === -1) return res.status(404).json({ error: "SubGoal not found" });
 
   parent.subGoals[subIndex].goal = goal;
@@ -99,10 +134,10 @@ app.delete("/deleteSubGoal/:goalId/:subGoalId", (req, res) => {
   const { goalId, subGoalId } = req.params;
 
   let goals = readGoals();
-  const parent = goals.find(g => g.id === parseInt(goalId));
+  const parent = goals.find((g) => g.id === parseInt(goalId));
   if (!parent) return res.status(404).json({ error: "Parent goal not found" });
 
-  const index = parent.subGoals.findIndex(sg => sg.id === parseInt(subGoalId));
+  const index = parent.subGoals.findIndex((sg) => sg.id === parseInt(subGoalId));
   if (index === -1) return res.status(404).json({ error: "SubGoal not found" });
 
   const deleted = parent.subGoals.splice(index, 1);
