@@ -20,7 +20,7 @@ function writeGoals(goals) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(goals, null, 2));
 }
 
-// POST: Add a new main goal (with optional subGoals)
+// POST: Add a new main goal
 app.post("/addGoal", (req, res) => {
   const { goal, subGoals } = req.body;
   if (!goal) return res.status(400).json({ error: "Goal is required" });
@@ -29,10 +29,12 @@ app.post("/addGoal", (req, res) => {
   const newGoal = {
     id: Date.now(),
     goal,
+    done: false, // ✅ added done state
     subGoals: Array.isArray(subGoals)
       ? subGoals.map((sg) => ({
           id: Date.now() + Math.floor(Math.random() * 1000),
           goal: sg,
+          done: false, // ✅ added done state
         }))
       : [],
   };
@@ -43,7 +45,7 @@ app.post("/addGoal", (req, res) => {
   res.status(201).json({ message: "Goal added", goal: newGoal });
 });
 
-// ✅ POST: Add a subGoal to an existing goal
+// POST: Add a subGoal to an existing goal
 app.post("/addSubGoal/:goalId", (req, res) => {
   const { goalId } = req.params;
   const { goal } = req.body;
@@ -57,6 +59,7 @@ app.post("/addSubGoal/:goalId", (req, res) => {
   const newSubGoal = {
     id: Date.now(),
     goal,
+    done: false, // ✅ added done state
   };
 
   parent.subGoals.push(newSubGoal);
@@ -65,12 +68,12 @@ app.post("/addSubGoal/:goalId", (req, res) => {
   res.status(201).json({ message: "SubGoal added", subGoal: newSubGoal, parentGoal: parent });
 });
 
-// GET: Get all goals (with subGoals)
+// GET: Get all goals
 app.get("/getGoals", (req, res) => {
   res.json(readGoals());
 });
 
-// ✅ GET: Get a single goal by ID
+// GET: Get a single goal by ID
 app.get("/getGoal/:id", (req, res) => {
   const { id } = req.params;
 
@@ -113,6 +116,37 @@ app.put("/changeSubGoal/:goalId/:subGoalId", (req, res) => {
   writeGoals(goals);
 
   res.json({ message: "SubGoal updated", subGoal: parent.subGoals[subIndex] });
+});
+
+// ✅ NEW: Toggle main goal done state
+app.put("/toggleGoal/:id", (req, res) => {
+  const { id } = req.params;
+  let goals = readGoals();
+
+  const goal = goals.find((g) => g.id === parseInt(id));
+  if (!goal) return res.status(404).json({ error: "Goal not found" });
+
+  goal.done = !goal.done; // ✅ toggle
+  writeGoals(goals);
+
+  res.json({ message: "Goal state toggled", goal });
+});
+
+// ✅ NEW: Toggle subGoal done state
+app.put("/toggleSubGoal/:goalId/:subGoalId", (req, res) => {
+  const { goalId, subGoalId } = req.params;
+  let goals = readGoals();
+
+  const parent = goals.find((g) => g.id === parseInt(goalId));
+  if (!parent) return res.status(404).json({ error: "Parent goal not found" });
+
+  const subGoal = parent.subGoals.find((sg) => sg.id === parseInt(subGoalId));
+  if (!subGoal) return res.status(404).json({ error: "SubGoal not found" });
+
+  subGoal.done = !subGoal.done; // ✅ toggle
+  writeGoals(goals);
+
+  res.json({ message: "SubGoal state toggled", subGoal });
 });
 
 // DELETE: Delete a main goal
